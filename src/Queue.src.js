@@ -63,9 +63,17 @@ function Queue(){
   /* Returns the item at the front of the queue (without dequeuing it). If the
    * queue is empty then undefined is returned.
    */
-  this.peek = function(){
+  this.peekFirst = function(){
     return (queue.length > 0 ? queue[offset] : undefined);
   }
+
+  /* Returns the item at the end of the queue (without dequeuing it). If the
+   * queue is empty then undefined is returned.
+   */
+  this.peekLast = function(){
+    return (queue.length > 0 ? queue[queue.length - 1] : undefined);
+  }
+
 
   /*
    * (My edit) Return the queue for iteration
@@ -73,6 +81,14 @@ function Queue(){
   this.getQueue = function() {
     return queue;
   }
+
+  /*
+   * (My edit) Return the offset of the queue
+   */
+   this.getOffset = function() {
+    return offset;
+   }
+
 
 }
 

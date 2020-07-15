@@ -1,13 +1,17 @@
 import React from 'react';
 import ReactDOM from 'react-dom';
 import './index.css';
+import appleImg from './apple.png'
 
 
 // Global Variables
 const SCALE = 30;
-const ROWS = 17; 
-const COLS = 17;
+const ROWS = 16; 
+const COLS = 16;
 const QueueSrc = require('./Queue.src')
+const FOOD = 'F';
+const SNAKE = 'S';
+let INTERVAL = 250;
 
 // Directions
 const UP = [-1, 0];
@@ -21,10 +25,10 @@ class Snake {
         this.color = color;
 
         // Body is an array of coordinates [row, col]
-        // Head of the snake is the first element of the array
-        // Tail of the snake is the last element of the array
+        // Tail of the snake is the first element of the array
+        // Head of the snake is the last element of the array
         this.body = new QueueSrc.Queue();
-        this.direction = RIGHT;
+        this.direction = [0, 0];
 
         this.initializeSnake();
     }
@@ -33,23 +37,57 @@ class Snake {
         this.body.enqueue([5, 5]); // Starting position [5,5]
     }
 
-    // Update the body of the snake by removing the tail and adding it as the tail
-    move() {
-
+    changeDirection(e) {
+        if (e.keyCode === 37 && this.direction !== RIGHT) {
+            this.direction = LEFT;
+        }
+        else if (e.keyCode === 38 && this.direction !== DOWN) {
+            this.direction = UP;
+        }
+        else if (e.keyCode === 39 && this.direction !== LEFT) {
+            this.direction = RIGHT;
+        }
+        else if (e.keyCode === 40 && this.direction !== UP) {
+            this.direction = DOWN;
+        }
     }
 
-    growSnake() {
 
+    // Update the body of the snake by removing the tail and adding it to head
+    nextMove(board) {
+        const head = this.body.peekLast();
+        const tail = this.body.peekFirst();
+        const next = [head[0] + this.direction[0], head[1] + this.direction[1]];
+
+        return [tail, next];
+    }
+
+
+    hasEatenFood(next, board) {
+        return board[next[0]][next[1]] === FOOD;
     }
 }
 
 
 class Square extends React.Component {
     render() {
-        const val = this.props.val;
+        let val = this.props.val;
+
+        // If the square is a food
+        if (val === FOOD) {
+            const imgStyle = {
+                height: SCALE - 1, // Minus one so the img doesn't cover the border lines
+                width: SCALE - 1,
+            }
+            val = <img style={imgStyle} src={appleImg} />;
+        }
+
+        // Else the square is a snake or a blank
+        const backColor = val === SNAKE ? 'black' : 'white';
         const squareStyle = {
             height: SCALE,
             width: SCALE,
+            'background-color': backColor,
         };
 
         return (
@@ -71,6 +109,7 @@ class Board extends React.Component {
             }
         }
 
+        // CSS styling for a row in the board
         const rowStyle = {
             height: SCALE,
             width: COLS * SCALE,
@@ -80,10 +119,10 @@ class Board extends React.Component {
             rows[i] = <div style={rowStyle} className='row'>{singleRow[i]}</div>
         }
 
-        // Board CSS styling
+        // CSS styling for the board
         const boardStyle = {
-            height: ROWS * SCALE,
-            width: COLS * SCALE,
+            height: ROWS * SCALE + 1,
+            width: COLS * SCALE + 1,
         };
 
         return (
@@ -105,35 +144,128 @@ class Game extends React.Component {
         this.state = {
             snake: new Snake(),
             board: Array(ROWS).fill().map(() => Array(COLS).fill(null)),
+            gameIsOver: false,
         };
 
-        this.updateBoard();
+        // Draw the initial snake on the board
+        const head = this.state.snake.body.peekFirst();
+        this.state.board[head[0]][head[1]] = SNAKE;
+
+        // Generate food
+        this.generateFood();
     }
 
-    // Generate a piece of food on a random position of the board
+    // Generate a piece of food on a random position on the board
     generateFood() {
-        
+        const board = this.state.board;
+        let r = Math.floor(Math.random() * ROWS);
+        let c = Math.floor(Math.random() * COLS);
+
+        while (board[r][c] != null) {
+            r = Math.floor(Math.random() * ROWS);
+            c = Math.floor(Math.random() * COLS);
+        }
+
+        board[r][c] = FOOD;
+    }
+
+    hasEatenFood(next, board) {
+        return board[next[0]][next[1]] === FOOD;
     }
 
     // Update the position of the snake and food in the board
     updateBoard() {
-        const body = this.state.snake.body.getQueue(); // JS Array
+        const snake = this.state.snake;
+        const body = snake.body.getQueue(); // JS Array
         const board = this.state.board; // 2d Array
         
-        body.forEach(pos => board[pos[0]][pos[1]] = 's');
+        // Move the snake and update its position on the board
+        var [tail, next] = snake.nextMove();
+        snake.body.enqueue(next);
+
+        // Check if next move is over
+        if (this.isGameOver(next, board)) {
+            this.setState({
+                gameIsOver: true,
+            });
+            return;
+        }
+
+        // Grow the snake if it ate food
+        if (!this.hasEatenFood(next, board)) {
+            snake.body.dequeue();
+        }
+        else {
+            this.generateFood();
+        }
+
+        // Update the snake on the board
+        board[tail[0]][tail[1]] = null;
+        board[next[0]][next[1]] = SNAKE;
+    }
+
+    changeSnakeDirection(e) {
+        this.state.snake.changeDirection(e);
+    }
+
+    // Check game is over if snake collided with itself or the walls
+    isGameOver(head, board) {
+        const snake = this.state.snake;
+        const body = snake.body.getQueue();
+
+        if (head[0] < 0 || head[0] >= ROWS) {
+            return true;
+        }
+        if (head[1] < 0 || head[1] >= COLS) {
+            return true;
+        }
+
+        for (let i = snake.body.getOffset() + 1; i < body.length - 1; i++) {
+            if (body[i][0] === head[0] && body[i][1] === head[1]) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    toggleSpeed(e) {
+        if (INTERVAL === 250) {
+            INTERVAL = 50;
+        }
+        else {
+            INTERVAL = 250;
+        }
     }
 
     render() {
+        if (this.state.gameIsOver) {
+            return (
+                <div id='gameid' className='game' tabIndex='0' onKeyDown={(e) => this.changeSnakeDirection(e)}>
+                    <div className='gameover'>Sorry, game over! Refresh page to play again</div>
+                </div>
+            );
+        }
+
+        this.updateBoard();
         return (
-            <div className='game'>
+            <div id='gameid' className='game' tabIndex='0' 
+                        onKeyDown={(e) => this.changeSnakeDirection(e)}>
                 <Board board={this.state.board}/>
             </div>
         );
     }
 }
 
+function renderGame() {
+  ReactDOM.render(<Game />, document.getElementById('root'));
+  document.getElementById("gameid").focus();
+}
 
-ReactDOM.render(
-    <Game />,
-    document.getElementById('root')
-);
+//renderGame();
+setInterval(renderGame, INTERVAL); 
+
+
+
+
+

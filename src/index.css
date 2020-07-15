@@ -2,6 +2,11 @@
     box-sizing: border-box;
 }
 
+.game {
+    //height: 1000px;
+    outline: none;
+}
+
 .row {
     margin: 0px;
     //border: 0.5px solid black;
@@ -20,6 +25,4 @@
     border-top: 0.1px solid black;
     border-left: 0.1px solid black;
     display: flex;
-    justify-content: center;
-    align-items: center;
 }
